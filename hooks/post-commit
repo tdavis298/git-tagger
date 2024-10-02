@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Run the tagger CLI to handle versioning and tagging
+/path/to/git-tag-manager/bin/tagger
+
+# Make sure the post-commit hook is executable
+chmod +x .git/hooks/post-commit
