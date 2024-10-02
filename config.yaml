@@ -1,0 +1,7 @@
+tag:
+  prefix: "v"
+  message: "Automated tag after commit"
+  increment_level: "patch"
+git:
+  push_tags: false
+  remote_name: "origin"
