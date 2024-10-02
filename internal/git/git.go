@@ -53,9 +53,9 @@ func SelectBranch(branches []string) (string, error) {
 	return strings.TrimSpace(branches[choice-1]), nil
 }
 
-// CreateTag creates a new Git tag with a message
-func CreateTag(tag, message string) error {
-	return runGitCommandVoid("tag", "-a", tag, "-m", message)
+// CreateTag creates a new Git tag with a message for a specific commit.
+func CreateTag(tag, message, commit string) error {
+	return runGitCommandVoid("tag", "-a", tag, "-m", message, commit)
 }
 
 // FindUntagged finds untagged commits in a given branch

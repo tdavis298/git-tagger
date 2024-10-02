@@ -109,7 +109,12 @@ func hookContainsLine(filePath, requiredContent string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+
+		}
+	}(file)
 
 	// Split the required content into lines for comparison
 	requiredLines := strings.Split(strings.TrimSpace(requiredContent), "\n")
@@ -201,32 +206,30 @@ func copyFile(src, dst string) error {
 	return os.Chmod(dst, 0755)
 }
 
-// getGitRoot returns the root directory of the Git repository.
-func getGitRoot() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to get git root: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 // generateRequiredLine generates the required line to be appended to the hook file.
 func generateRequiredLine() (string, error) {
-	// Get the absolute path to the current executable
-	execPath, err := os.Executable()
+	// Get the root directory of the Git repository
+	gitRootCmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := gitRootCmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get executable path: %w", err)
+		return "", fmt.Errorf("failed to get git root directory: %w", err)
 	}
+	gitRoot := strings.TrimSpace(string(output))
 
-	// Resolve any symlinks and get the absolute path
-	execPath, err = filepath.EvalSymlinks(execPath)
+	// Define the relative path to your executable within the repository
+	relativeExecPath := "cmd/tagger"
+
+	// Join the git root and the relative path to form the full path to the executable
+	execPath := filepath.Join(gitRoot, relativeExecPath)
+
+	// Ensure the path is fully resolved if there are any symlinks
+	realExecPath, err := filepath.EvalSymlinks(execPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate symlinks for executable path: %w", err)
 	}
 
 	// Generate the line to be appended with the correct path
-	line := fmt.Sprintf("# Added by git-tagger\n%s -version-tag", execPath)
+	line := fmt.Sprintf("# Added by git-tagger\n%s -version-tag", realExecPath)
 
 	// Debugging output
 	fmt.Println("Generated line:", line)
