@@ -11,9 +11,19 @@ import (
 	"strings"
 )
 
-// GetBranches retrieves all local branches
+// GetBranches retrieves all local branches, trimming any leading '*' character.
 func GetBranches() ([]string, error) {
-	return runGitCommand("branch")
+	branches, err := runGitCommand("branch")
+	if err != nil {
+		return nil, err
+	}
+
+	// Clean up branch names
+	for i, branch := range branches {
+		branches[i] = strings.TrimSpace(strings.TrimPrefix(branch, "*"))
+	}
+
+	return branches, nil
 }
 
 // SelectBranch lets the user choose a branch from the list of branches
@@ -149,12 +159,12 @@ func GetCommitMessage(commit string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// GetCommitHash retrieves the hash for a given commit.
-func GetCommitHash(commit string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", commit)
+// GetShortCommitHash retrieves the short hash for a given commit.
+func GetShortCommitHash(commit string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--short", commit)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get commit hash: %w", err)
+		return "", fmt.Errorf("failed to get short hash: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
