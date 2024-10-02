@@ -12,6 +12,7 @@ import (
 
 func main() {
 	// define flags for more options
+	branchFlag := flag.String("branch", "", "Specify the branch to tag")
 	versionTagFlag := flag.Bool("version-tag", false, "Tag untagged Git commits with version numbers")
 	installFlag := flag.Bool("install", false, "Install the Git post-commit hook")
 	uninstallFlag := flag.Bool("clean", false, "Remove the Git post-commit hook")
@@ -21,32 +22,33 @@ func main() {
 	// handle unparsed flags
 	utils.HandleUnparsedArgs(flag.Args())
 
-	// If the version tag flag is provided, run the version tagging logic
+	// Handle the version tagging logic
 	if *versionTagFlag {
-		// get the list of branches
-		branches, err := git.GetBranches()
-		if err != nil {
-			fmt.Println("Failed to select branch. Ensure that the repository is not empty and you have the correct permissions:", err, err)
-			os.Exit(1)
-		}
-		if len(branches) == 0 {
-			fmt.Println("No branches found in the repository.")
-			os.Exit(1)
-		}
+		branch := *branchFlag
 
-		// let the user select a branch
-		selectedBranch, err := git.SelectBranch(branches) // pass branches to the function
-		if err != nil {
+		// If branch is not specified via the flag, ask the user to select one
+		if branch == "" {
+			branches, err := git.GetBranches()
+			if err != nil {
+				fmt.Println("Failed to get branches:", err)
+				os.Exit(1)
+			}
 			if len(branches) == 0 {
 				fmt.Println("No branches found in the repository.")
 				os.Exit(1)
 			}
-			fmt.Println("Error selecting branch:", err)
-			os.Exit(1)
+
+			selectedBranch, err := git.SelectBranch(branches)
+			if err != nil {
+				fmt.Println("Error selecting branch:", err)
+				os.Exit(1)
+			}
+
+			branch = selectedBranch
 		}
 
-		// update untagged commits for the selected branch
-		err = version.UpdateUntaggedCommits(selectedBranch)
+		// Update untagged commits for the selected branch
+		err := version.UpdateUntaggedCommits(branch)
 		if err != nil {
 			fmt.Println("Failed to update untagged commits:", err)
 			os.Exit(1)
