@@ -37,6 +37,7 @@ func IncrementVersion(latestTag, level string) (string, error) {
 	return newTag, nil
 }
 
+// UpdateUntaggedCommits finds untagged commits on a branch and tags them in order based on the nearest tagged commit.
 func UpdateUntaggedCommits(branch string) error {
 	// Find all untagged commits
 	untaggedCommits, err := git.FindUntagged(branch)
@@ -52,45 +53,42 @@ func UpdateUntaggedCommits(branch string) error {
 	// Find the latest tag on the branch (if any)
 	latestTag, err := git.GetLatestTag()
 	if err != nil {
-		log.Printf("No tags found on the branch. Starting from v0.0.0.")
-		latestTag = "v0.0.0" // Assume initial tag as v0.0.0 to start from v0.0.1
+		// No tags found; start from v0.0.1 directly
+		log.Printf("No tags found on the branch. Starting from v0.0.1.")
+		latestTag = "v0.0.0" // Initialize latestTag as "v0.0.0"
 	}
 
-	// Start versioning from the latest tag
+	// Start versioning from v0.0.1 if no tags exist
 	nextTag, err := IncrementVersion(latestTag, "patch")
 	if err != nil {
 		return fmt.Errorf("failed to increment version: %w", err)
 	}
 
 	// Tag each untagged commit
-	for _, commit := range untaggedCommits {
-		// Get the commit message and determine the increment level
-		commitMessage, err := git.GetCommitMessage(commit)
-		if err != nil {
-			return fmt.Errorf("failed to get commit message for %s: %w", commit, err)
+	for i, commit := range untaggedCommits {
+		// Only increment for subsequent commits
+		if i > 0 {
+			nextTag, err = IncrementVersion(nextTag, "patch")
+			if err != nil {
+				return fmt.Errorf("failed to increment version: %w", err)
+			}
 		}
 
-		incrementLevel := determineIncrementLevel(commitMessage)
-		nextTag, err = IncrementVersion(nextTag, incrementLevel)
+		// Get the short hash of the commit
+		shortHash, err := git.GetShortCommitHash(commit)
 		if err != nil {
-			return fmt.Errorf("failed to increment version: %w", err)
+			return fmt.Errorf("failed to get short hash for commit %s: %w", commit, err)
 		}
-
-		// Get the first 7 characters of the commit hash
-		commitHash, err := git.GetCommitHash(commit)
-		if err != nil {
-			return fmt.Errorf("failed to get commit hash for %s: %w", commit, err)
-		}
-		shortHash := commitHash[:7] // Get the first 7 characters of the hash
 
 		// Append the hash to the tag
-		versionedTag := fmt.Sprintf("%s-%s", nextTag, shortHash)
-		fmt.Printf("Tagging commit %s with %s\n", commit, versionedTag)
+		tagWithHash := fmt.Sprintf("%s-%s", nextTag, shortHash)
+
+		fmt.Printf("Tagging commit %s with %s\n", commit, tagWithHash)
 
 		// Create a tag for the untagged commit
-		err = git.CreateTag(versionedTag, fmt.Sprintf("Automated tagging for commit %s", commit))
+		err = git.CreateTag(tagWithHash, fmt.Sprintf("Automated tagging for commit %s", commit))
 		if err != nil {
-			return fmt.Errorf("failed to create tag %s for commit %s: %w", versionedTag, commit, err)
+			return fmt.Errorf("failed to create tag %s for commit %s: %w", tagWithHash, commit, err)
 		}
 	}
 
