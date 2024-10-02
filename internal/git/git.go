@@ -58,12 +58,6 @@ func CreateTag(tag, message, commit string) error {
 	return runGitCommandVoid("tag", "-a", tag, "-m", message, commit)
 }
 
-// FindUntagged finds untagged commits in a given branch
-func FindUntagged(branch string) ([]string, error) {
-	// Get all commits on the branch
-	return runGitCommand("rev-list", "--reverse", branch)
-}
-
 // runGitCommand executes a Git command and returns the output as a slice of strings
 func runGitCommand(args ...string) ([]string, error) {
 	cmd := exec.Command("git", args...)
@@ -169,12 +163,34 @@ func GetShortCommitHash(commit string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// GetCurrentBranch retrieves the name of the current Git branch
-func GetCurrentBranch() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	out, err := cmd.Output()
+// GetTagsForCommit retrieves tags for a specific commit.
+func GetTagsForCommit(commit string) ([]string, error) {
+	tags, err := runGitCommand("tag", "--contains", commit)
 	if err != nil {
-		return "", fmt.Errorf("failed to get current branch: %w", err)
+		return nil, fmt.Errorf("failed to retrieve tags for commit %s: %w", commit, err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	return tags, nil
+}
+
+// FindUntagged finds true untagged commits in a given branch.
+func FindUntagged(branch string) ([]string, error) {
+	// Get all commits on the branch
+	commits, err := runGitCommand("rev-list", "--reverse", branch)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter out commits that already have tags
+	var untaggedCommits []string
+	for _, commit := range commits {
+		tags, err := GetTagsForCommit(commit)
+		if err != nil {
+			return nil, err
+		}
+		if len(tags) == 0 {
+			untaggedCommits = append(untaggedCommits, commit)
+		}
+	}
+
+	return untaggedCommits, nil
 }

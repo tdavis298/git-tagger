@@ -39,7 +39,7 @@ func IncrementVersion(latestTag string, level string) (string, error) {
 	return newTag, nil
 }
 
-// UpdateUntaggedCommits finds untagged commits on a branch and tags them in order based on the nearest tagged commit.
+// UpdateUntaggedCommits finds untagged commits on a branch, checking tags and messages for version references.
 func UpdateUntaggedCommits(branch string) error {
 	// Find all untagged commits
 	untaggedCommits, err := git.FindUntagged(branch)
@@ -52,37 +52,41 @@ func UpdateUntaggedCommits(branch string) error {
 		return nil
 	}
 
-	// Start with the latest tag found on the branch (if any)
+	// Find the latest tag on the branch (if any)
 	latestTag, err := git.GetLatestTag()
 	if err != nil {
-		// No tags found; start from v0.0.1 directly
-		log.Printf("No tags found on the branch. Starting from v0.0.1.")
-		latestTag = "v0.0.1"
+		// No tags found; start from v0.0.0 directly
+		log.Printf("No tags found on the branch. Starting from v0.0.0.")
+		latestTag = "v0.0.0"
 	}
 
-	// Track the current tag
+	// Track the current version for tagging
 	currentTag := latestTag
 
-	// Tag each untagged commit sequentially
-	for i, commit := range untaggedCommits {
+	// Iterate through untagged commits from oldest to newest
+	for _, commit := range untaggedCommits {
 		// Get the commit message
 		message, err := git.GetCommitMessage(commit)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve commit message for %s: %w", commit, err)
 		}
 
-		// Determine increment level for the current commit message
+		// Check if the commit message contains a version tag
 		incrementLevel, versionFromMessage := determineIncrementLevel(message)
 
 		// If a version tag is found in the message, update the currentTag to that version
 		if versionFromMessage != "" {
 			currentTag = versionFromMessage
 		} else {
-			// Increment the tag version based on the commit message
-			if i == 0 && currentTag == "v0.0.1" {
-				// Use currentTag as is for the first commit if no tag exists
-				fmt.Printf("Starting tagging from %s\n", currentTag)
+			// Otherwise, reference existing tags
+			tags, err := git.GetTagsForCommit(commit)
+			if err != nil {
+				return fmt.Errorf("failed to get tags for commit %s: %w", commit, err)
+			}
+			if len(tags) > 0 {
+				currentTag = tags[0] // Assuming the first tag is the most relevant; adjust based on further logic if needed
 			} else {
+				// Increment the tag version based on the commit message
 				currentTag, err = IncrementVersion(currentTag, incrementLevel)
 				if err != nil {
 					return fmt.Errorf("failed to increment version: %w", err)
@@ -101,8 +105,9 @@ func UpdateUntaggedCommits(branch string) error {
 
 		fmt.Printf("Tagging commit %s with %s\n", commit, tagWithHash)
 
-		// Create a tag for the specific commit
+		// Create a tag for the untagged commit
 		err = git.CreateTag(tagWithHash, fmt.Sprintf("Automated tagging for commit %s", commit), commit)
+
 		if err != nil {
 			return fmt.Errorf("failed to create tag %s for commit %s: %w", tagWithHash, commit, err)
 		}
