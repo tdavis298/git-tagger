@@ -168,3 +168,13 @@ func GetShortCommitHash(commit string) (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+// GetCurrentBranch retrieves the name of the current Git branch
+func GetCurrentBranch() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
