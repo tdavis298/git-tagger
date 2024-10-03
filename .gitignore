@@ -1,0 +1,51 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build cache, and coverage files
+*.test
+*.out
+
+# Output of the go build command
+bin/
+dist/
+
+# Vendor packages (when not using Go modules)
+vendor/
+
+# Logs and debugging
+*.log
+*.trace
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Dependency directories and Go module files
+Godeps/
+go.sum
+
+# System files and backup files
+.DS_Store
+Thumbs.db
+*.bak
+*.swp
+*.tmp
+*.temp
+
+# Temporary build directory
+/build/
+
+# Go coverage files
+*.coverprofile
+*.cover.out
+
+# Other build and generated files
+*.a
+*.o
+*.cgo
+_generated/

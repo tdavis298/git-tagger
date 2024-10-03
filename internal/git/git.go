@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// tagging functions:
+// ---------- Tagging Functions ----------
 
 // CreateTag creates an annotated Git tag with the given tag name, message, and commit.
 // Parameters:
@@ -33,9 +33,9 @@ func CreateTag(tag, message, commit string) error {
 // - error: an error object if something went wrong, otherwise nil
 func FindUntagged(branch string) ([]string, error) {
 	// get all commits on the branch
-	commits, err := runGitCommand("rev-list", "--reverse", branch)
+	commits, err := RunGitCommand("rev-list", "--reverse", branch)
 	if err != nil {
-		fmt.Printf("Error retrieving commits for branch '%s': %v\n", branch, err)
+		fmt.Printf("error retrieving commits for branch '%s': %v\n", branch, err)
 		return nil, fmt.Errorf("failed to find untagged commits: %w", err)
 	}
 
@@ -60,7 +60,7 @@ func FindUntagged(branch string) ([]string, error) {
 // - error: An error object if something went wrong or if no semantic version tags were found
 func GetLatestTag() (string, error) {
 	// Get all tags
-	tags, err := runGitCommand("tag")
+	tags, err := RunGitCommand("tag")
 	if err != nil {
 		return "", utils.WrapErrorf("failed to retrieve tags: %w", err)
 	}
@@ -93,14 +93,14 @@ func GetLatestTag() (string, error) {
 // - []string: a slice of tag names associated with the commit
 // - error: an error object if something went wrong, otherwise nil
 func GetTagsForCommit(commit string) ([]string, error) {
-	tags, err := runGitCommand("tag", "--contains", commit)
+	tags, err := RunGitCommand("tag", "--contains", commit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve tags for commit %s: %w", commit, err)
 	}
 	return tags, nil
 }
 
-// commit functions:
+// // ---------- Commit Functions ----------
 
 // GetShortCommitHash retrieves the short form of a given commit hash.
 // parameters:
@@ -132,14 +132,14 @@ func GetCommitMessage(commit string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// branch functions:
+// ---------- Branch Functions ----------
 
 // GetBranches retrieves all local branches, trimming any leading '*' character
 // Returns:
 // - []string: A slice of branch names
 // - error: An error object if something went wrong, otherwise nil
 func GetBranches() ([]string, error) {
-	branches, err := runGitCommand("branch")
+	branches, err := RunGitCommand("branch")
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +163,7 @@ func GetCurrentBranch() (string, error) {
 		return "", fmt.Errorf("failed to get current branch: %w", err)
 	}
 
+	// Ensure any extra spaces or newlines are trimmed
 	branchName := strings.TrimSpace(string(out))
 	if branchName == "HEAD" {
 		return "", fmt.Errorf("detached HEAD state: not currently on any branch")
@@ -203,15 +204,15 @@ func SelectBranch(branches []string) (string, error) {
 	return strings.TrimSpace(branches[choice-1]), nil
 }
 
-// utility functions
+// ---------- Utility Functions ----------
 
-// runGitCommand executes a git command and returns the output as a slice of strings
+// RunGitCommand executes a git command and returns the output as a slice of strings
 // parameters:
 // - args: the arguments for the git command
 // returns:
 // - []string: the output lines from the git command
 // - error: an error object if something went wrong, otherwise nil
-func runGitCommand(args ...string) ([]string, error) {
+func RunGitCommand(args ...string) ([]string, error) {
 	cmd := exec.Command("git", args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out

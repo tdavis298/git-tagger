@@ -14,7 +14,7 @@ const (
 	hookDest = ".git/hooks/post-commit" // destination of the hook in a Git repository
 )
 
-// git hook functions:
+// ---------- Git Hook Functions ----------
 
 // CleanGitHook removes content added by the versioning tool from the post-commit hook.
 // returns:
@@ -145,7 +145,7 @@ func InstallGitHook(executablePath string) error {
 	return nil
 }
 
-// file utility functions:
+// ---------- File Utility Functions ----------
 
 // appendLineToFile appends a line to a file, ensuring the file is executable.
 // parameters:
