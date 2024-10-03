@@ -2,25 +2,14 @@ package utils
 
 import (
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
 // utility functions:
-
-// IsSemVer checks if a given string is a semantic version
-// parameters:
-// - version: the version string to check
-// returns:
-// - bool: true if the string is a semantic version, otherwise false
-func IsSemVer(tag string) bool {
-	// Regex to strictly match semantic versions like vX.Y.Z where X, Y, and Z are integers
-	// It allows an optional hash suffix (e.g., v1.2.3-hash)
-	semVerPattern := `^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$`
-	match, _ := regexp.MatchString(semVerPattern, tag)
-	return match
-}
 
 // CompareSemVer compares two semantic version strings.
 // Parameters:
@@ -65,6 +54,27 @@ func CompareSemVer(a, b string) int {
 	return 0
 }
 
+// BuildExecutable builds the Go executable for the project.
+// - projectRoot: the root directory of the project where the `cmd/tagger/main.go` is located
+// - outputPath: the path to output the built binary
+// returns:
+// - error: an error object if something went wrong, otherwise nil
+func BuildExecutable(projectRoot string, outputPath string) error {
+	// Absolute path to the Go file
+	mainGoPath := filepath.Join(projectRoot, "cmd/tagger/main.go")
+
+	// Construct the `go build` command
+	cmd := exec.Command("go", "build", "-o", outputPath, mainGoPath)
+
+	// Execute the build command
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to build executable: %w", err)
+	}
+
+	fmt.Println("Executable built successfully at:", outputPath)
+	return nil
+}
+
 // FilterEmptyStrings removes empty or whitespace-only strings from a slice.
 // parameters:
 // - slice: a slice of strings to filter
@@ -78,6 +88,19 @@ func FilterEmptyStrings(slice []string) []string {
 		}
 	}
 	return result
+}
+
+// IsSemVer checks if a given string is a semantic version
+// parameters:
+// - version: the version string to check
+// returns:
+// - bool: true if the string is a semantic version, otherwise false
+func IsSemVer(tag string) bool {
+	// Regex to strictly match semantic versions like vX.Y.Z where X, Y, and Z are integers
+	// It allows an optional hash suffix (e.g., v1.2.3-hash)
+	semVerPattern := `^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$`
+	match, _ := regexp.MatchString(semVerPattern, tag)
+	return match
 }
 
 // StripHashSuffix removes the hash suffix from a version tag if present.

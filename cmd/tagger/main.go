@@ -60,7 +60,31 @@ func main() {
 
 	// if the install flag is provided, install hook
 	if *installFlag {
-		err := scripts.InstallGitHook()
+		// set project root and output paths
+		projectRoot := "."       // assuming current directory is the project root; adjust if necessary
+		outputPath := "./tagger" // output path for the binary
+
+		// check to see if the build is necessary
+		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+			fmt.Println("Building the Go executable...")
+			err = utils.BuildExecutable(projectRoot, outputPath)
+			if err != nil {
+				fmt.Println("Failed to build the executable:", err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println("Executable already exists at:", outputPath)
+		}
+
+		// build the Go executable
+		err := utils.BuildExecutable(projectRoot, outputPath)
+		if err != nil {
+			fmt.Println("Failed to build the executable:", err)
+			os.Exit(1)
+		}
+
+		// install the Git hook
+		err = scripts.InstallGitHook(outputPath)
 		if err != nil {
 			fmt.Println("Failed to install Git hook:", err)
 			os.Exit(1)
@@ -69,7 +93,7 @@ func main() {
 		return
 	}
 
-	// if the uninstall flag is provided, clean the Git hook
+	// If the uninstall flag is provided, clean the Git hook
 	if *uninstallFlag {
 		err := scripts.CleanGitHook()
 		if err != nil {
