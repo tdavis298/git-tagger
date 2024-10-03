@@ -9,7 +9,15 @@ import (
 	"strings"
 )
 
+// version functions
+
 // IncrementVersion increments a semantic version based on a single level.
+// parameters:
+// - latestTag: the current latest semantic version tag
+// - level: the level of version increment (major, minor, patch)
+// returns:
+// - string: the new incremented version tag
+// - error: an error object if something went wrong, otherwise nil
 func IncrementVersion(latestTag string, level string) (string, error) {
 	parts := strings.Split(strings.TrimPrefix(latestTag, "v"), ".")
 	if len(parts) != 3 {
@@ -40,6 +48,10 @@ func IncrementVersion(latestTag string, level string) (string, error) {
 }
 
 // UpdateUntaggedCommits finds untagged commits on a branch, checking tags and messages for version references.
+// parameters:
+// - branch: the branch from which to find untagged commits
+// returns:
+// - error: an error object if something went wrong, otherwise nil
 func UpdateUntaggedCommits(branch string) error {
 	// Find all untagged commits
 	untaggedCommits, err := git.FindUntagged(branch)
@@ -118,7 +130,11 @@ func UpdateUntaggedCommits(branch string) error {
 }
 
 // determineIncrementLevel determines the level of version increment based on commit message.
-// It returns the increment level and any version found within the message.
+// parameters:
+// - commitMessage: the commit message to analyze
+// returns:
+// - string: the level of version increment (major, minor, patch)
+// - string: any version found within the message
 func determineIncrementLevel(commitMessage string) (string, string) {
 	if strings.Contains(commitMessage, "BREAKING CHANGE") {
 		return "major", ""
@@ -140,7 +156,13 @@ func determineIncrementLevel(commitMessage string) (string, string) {
 	return "patch", "" // Default to patch if none of the keywords match
 }
 
-// extractVersionTag extracts a version tag (vX.Y.Z format) from the commit message if present.
+// utility functions
+
+// extractVersionTag extracts a semantic version tag from a commit message.
+// parameters:
+// - commitMessage: the commit message from which to extract the version tag
+// returns:
+// - string: the extracted version tag, or an empty string if none is found
 func extractVersionTag(commitMessage string) string {
 	versionPattern := regexp.MustCompile(`v\d+\.\d+\.\d+`)
 	versionTag := versionPattern.FindString(commitMessage)
