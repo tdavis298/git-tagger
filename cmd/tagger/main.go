@@ -13,20 +13,20 @@ import (
 func main() {
 	// define flags for more options
 	branchFlag := flag.String("branch", "", "Specify the branch to tag")
-	versionTagFlag := flag.Bool("version-tag", false, "Tag untagged Git commits with version numbers")
 	installFlag := flag.Bool("install", false, "Install the Git post-commit hook")
 	uninstallFlag := flag.Bool("clean", false, "Remove the Git post-commit hook")
+	versionTagFlag := flag.Bool("version-tag", false, "Tag untagged Git commits with version numbers")
 
 	flag.Parse()
 
 	// handle unparsed flags
 	utils.HandleUnparsedArgs(flag.Args())
 
-	// Handle the version tagging logic
+	// handle the version tagging logic
 	if *versionTagFlag {
 		branch := *branchFlag
 
-		// If branch is not specified via the flag, ask the user to select one
+		// if branch is not specified via the flag, ask the user to select one
 		if branch == "" {
 			branches, err := git.GetBranches()
 			if err != nil {
@@ -47,7 +47,7 @@ func main() {
 			branch = selectedBranch
 		}
 
-		// Update untagged commits for the selected branch
+		// update untagged commits for the selected branch
 		err := version.UpdateUntaggedCommits(branch)
 		if err != nil {
 			fmt.Println("Failed to update untagged commits:", err)
