@@ -3,6 +3,7 @@ package scripts
 import (
 	"bufio"
 	"fmt"
+	"git-tagger/internal/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,61 +11,17 @@ import (
 )
 
 const (
-	hookSource = "hooks/post-commit"      // Source file for the post-commit hook template
-	hookDest   = ".git/hooks/post-commit" // Destination of the hook in a Git repository
+	hookDest = ".git/hooks/post-commit" // destination of the hook in a Git repository
 )
 
-// InstallGitHook sets up the post-commit hook by copying or modifying it
-func InstallGitHook() error {
-	// Generate the required line to be appended
-	requiredLine, err := generateRequiredLine()
-	if err != nil {
-		return err
-	}
+// git hook functions:
 
-	// Check if the hook file already exists
-	if _, err := os.Stat(hookDest); err == nil {
-		fmt.Println("A post-commit hook already exists. Checking for required line...")
-
-		// Check if the required line is present in the existing hook
-		contains, err := hookContainsLine(hookDest, requiredLine)
-		if err != nil {
-			return fmt.Errorf("failed to check post-commit hook contents in %s: %w", hookDest, err)
-		}
-
-		if contains {
-			fmt.Println("The post-commit hook already contains the required line. No action needed.")
-			return nil
-		}
-
-		// Append the required line if it's missing
-		fmt.Println("Appending required line to existing post-commit hook.")
-		return appendLineToFile(hookDest, requiredLine)
-	}
-
-	// If the hook does not exist, copy the hook file and make it executable
-	fmt.Println("No existing post-commit hook found. Installing new hook.")
-	if err := copyFile(hookSource, hookDest); err != nil {
-		return fmt.Errorf("failed to copy post-commit hook from %s to %s: %w", hookSource, hookDest, err)
-	}
-
-	// Append the required line
-	if err := appendLineToFile(hookDest, requiredLine); err != nil {
-		return err
-	}
-
-	// Make sure the new hook file is executable
-	if err := os.Chmod(hookDest, 0755); err != nil {
-		return fmt.Errorf("failed to make hook file executable: %w", err)
-	}
-
-	return nil
-}
-
-// CleanGitHook removes the lines added by the installer from the post-commit hook
+// CleanGitHook removes content added by the versioning tool from the post-commit hook.
+// returns:
+// - error: an error object if something went wrong, otherwise nil
 func CleanGitHook() error {
-	// Generate the required line to identify it
-	requiredLine, err := generateRequiredLine()
+	// Generate the hook content to identify what was added
+	hookContent, err := generateHookContent()
 	if err != nil {
 		return err
 	}
@@ -72,7 +29,7 @@ func CleanGitHook() error {
 	// Read the existing file content
 	input, err := os.ReadFile(hookDest)
 	if err != nil {
-		return fmt.Errorf("failed to read post-commit hook (%s): %w", hookDest, err)
+		return utils.WrapErrorf("failed to read post-commit hook (%s): %w", err, hookDest)
 	}
 
 	// Split the file content into lines
@@ -81,21 +38,36 @@ func CleanGitHook() error {
 	// Open the file for writing (truncate the file first)
 	file, err := os.OpenFile(hookDest, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to open post-commit hook for cleaning (%s): %w", hookDest, err)
+		return utils.WrapErrorf("failed to open post-commit hook for cleaning (%s): %w", err, hookDest)
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
+	defer func() {
+		_ = file.Close()
+	}()
 
-		}
-	}(file)
+	// Prepare to identify lines added by the versioning tool
+	hookLines := strings.Split(hookContent, "\n")
+	var inHookBlock bool
 
-	// Re-write only the lines that do not contain the identifier added by git-tagger
+	// Re-write only lines that are not part of the added content
 	for _, line := range lines {
-		if !strings.Contains(line, "# Added by git-tagger") && !strings.Contains(line, requiredLine) {
-			if _, err := file.WriteString(line + "\n"); err != nil {
-				return fmt.Errorf("failed to write cleaned post-commit hook (%s): %w", hookDest, err)
-			}
+		trimmedLine := strings.TrimSpace(line)
+
+		// Identify the start of the added block
+		if strings.Contains(trimmedLine, "# Added by versioning tool") {
+			inHookBlock = true
+			continue
+		}
+
+		// Skip lines within the block until the block ends
+		if inHookBlock && containsHookLine(trimmedLine, hookLines) {
+			continue
+		} else {
+			inHookBlock = false
+		}
+
+		// Write lines that are not part of the block
+		if _, err := file.WriteString(line + "\n"); err != nil {
+			return utils.WrapErrorf("failed to write cleaned post-commit hook (%s): %w", err, hookDest)
 		}
 	}
 
@@ -103,18 +75,165 @@ func CleanGitHook() error {
 	return nil
 }
 
-// hookContainsLine checks if all lines in the required content exist together in sequence in a file.
+// InstallGitHook installs or updates the post-commit hook with necessary content.
+// returns:
+// - error: an error object if something went wrong, otherwise nil
+func InstallGitHook() error {
+	// Generate the content for the hook script
+	hookContent, err := generateHookContent()
+	if err != nil {
+		return err
+	}
+
+	// Check if the hook file already exists
+	if _, err := os.Stat(hookDest); err == nil {
+		fmt.Println("A post-commit hook already exists. Checking for required content...")
+
+		// Check if the required content is present in the existing hook
+		contains, err := hookContainsLine(hookDest, hookContent)
+		if err != nil {
+			return utils.WrapErrorf("failed to check post-commit hook contents in %s: %w", err, hookDest)
+		}
+
+		if contains {
+			fmt.Println("The post-commit hook already contains the required content. No action needed.")
+			return nil
+		}
+
+		// Append the required content if it's missing
+		fmt.Println("Appending required content to existing post-commit hook.")
+		return appendLineToFile(hookDest, hookContent)
+	}
+
+	// If the hook does not exist, create the hook file and make it executable
+	fmt.Println("No existing post-commit hook found. Installing new hook.")
+	if err := writeFile(hookDest, hookContent); err != nil {
+		return fmt.Errorf("failed to write post-commit hook to %s: %w", hookDest, err)
+	}
+
+	// Make sure the new hook file is executable
+	if err := os.Chmod(hookDest, 0755); err != nil {
+		return utils.WrapErrorf("failed to make hook file executable: %w", err)
+	}
+
+	return nil
+}
+
+// file utility functions:
+
+// appendLineToFile appends a line to a file, ensuring the file is executable.
+// parameters:
+// - filePath: the path to the file to which the line should be appended
+// - line: the line to append to the file
+// returns:
+// - error: an error object if something went wrong, otherwise nil
+func appendLineToFile(filePath, line string) error {
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0755)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	_, err = file.WriteString("\n" + line + "\n")
+	if err != nil {
+		return err
+	}
+
+	// Make sure the hook file is executable
+	return os.Chmod(filePath, 0755)
+}
+
+// containsHookLine checks if a given line is present in a slice of hook lines.
+// parameters:
+// - line: the line to check for
+// - hookLines: the slice of hook lines to check within
+// returns:
+// - bool: true if the line is found, false otherwise
+func containsHookLine(line string, hookLines []string) bool {
+	trimmedLine := strings.TrimSpace(line)
+	for _, hookLine := range hookLines {
+		if strings.TrimSpace(hookLine) == trimmedLine {
+			return true
+		}
+	}
+	return false
+}
+
+// generateHookContent generates the content for a git post-commit hook.
+// returns:
+// - string: the generated hook content
+// - error: an error object if something went wrong, otherwise nil
+func generateHookContent() (string, error) {
+	// Get the root directory of the Git repository
+	gitRootCmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := gitRootCmd.Output()
+	if err != nil {
+		return "", utils.WrapErrorf("failed to get git root directory: %w", err)
+	}
+	gitRoot := strings.TrimSpace(string(output))
+
+	// Define the relative path to your executable within the repository
+	relativeExecPath := "cmd/tagger"
+
+	// Join the git root and the relative path to form the full path to the executable
+	execPath := filepath.Join(gitRoot, relativeExecPath)
+
+	// Ensure the path is fully resolved if there are any symlinks
+	realExecPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return "", utils.WrapErrorf("failed to evaluate symlinks for executable path: %w", err)
+	}
+
+	// Generate the full script to be added as the post-commit hook
+	hookContent := fmt.Sprintf(`#!/bin/sh
+
+# Added by versioning tool
+# This script triggers the versioning logic after every commit.
+
+# Navigate to the Git project root
+cd "$(git rev-parse --show-toplevel)" || exit
+
+# Path to your Go program (assuming you have built it already)
+GIT_TAGGER_PATH="%s"
+
+# Check if the versioning executable exists
+if [ ! -f "$GIT_TAGGER_PATH" ]; then
+  echo "Versioning executable not found at $GIT_TAGGER_PATH"
+  exit 1
+fi
+
+# Run the Go program with the necessary flag for version tagging
+"$GIT_TAGGER_PATH" -version-tag
+
+# Check if the tagging was successful
+if [ $? -eq 0 ]; then
+  echo "Version tag updated successfully."
+else
+  echo "Failed to update version tag."
+  exit 1
+fi
+`, realExecPath)
+
+	return hookContent, nil
+}
+
+// hookContainsLine checks if a hook file contains the required content in sequence.
+// parameters:
+// - filePath: the path to the hook file to check
+// - requiredContent: the content to check for within the hook file
+// returns:
+// - bool: true if the required content is found in sequence, false otherwise
+// - error: an error object if something went wrong, otherwise nil
 func hookContainsLine(filePath, requiredContent string) (bool, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return false, err
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-
-		}
-	}(file)
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// Split the required content into lines for comparison
 	requiredLines := strings.Split(strings.TrimSpace(requiredContent), "\n")
@@ -144,95 +263,25 @@ func hookContainsLine(filePath, requiredContent string) (bool, error) {
 	return false, nil
 }
 
-// appendLineToFile appends a line to a file and makes it executable
-func appendLineToFile(filePath, line string) error {
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0755)
+// writeFile writes content to a file, creating or truncating the file first.
+// parameters:
+// - filePath: the path to the file to write to
+// - content: the content to write to the file
+// returns:
+// - error: an error object if something went wrong, otherwise nil
+func writeFile(filePath, content string) error {
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
-		return err
+		return utils.WrapErrorf("failed to open or create file: %w", err)
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
+	defer func() {
+		_ = file.Close()
+	}()
 
-		}
-	}(file)
-
-	_, err = file.WriteString("\n" + line + "\n")
+	_, err = file.WriteString(content)
 	if err != nil {
-		return err
+		return utils.WrapErrorf("failed to write content to file: %w", err)
 	}
 
-	// Make sure the hook file is executable
-	return os.Chmod(filePath, 0755)
-}
-
-// copyFile copies a file from src to dst and ensures the destination file is executable
-func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer func(srcFile *os.File) {
-		err := srcFile.Close()
-		if err != nil {
-
-		}
-	}(srcFile)
-
-	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer func(dstFile *os.File) {
-		err := dstFile.Close()
-		if err != nil {
-
-		}
-	}(dstFile)
-
-	scanner := bufio.NewScanner(srcFile)
-	for scanner.Scan() {
-		_, err = dstFile.WriteString(scanner.Text() + "\n")
-		if err != nil {
-			return fmt.Errorf("failed to write to destination file: %w", err)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading source file: %w", err)
-	}
-
-	// Make sure the new hook file is executable
-	return os.Chmod(dst, 0755)
-}
-
-// generateRequiredLine generates the required line to be appended to the hook file.
-func generateRequiredLine() (string, error) {
-	// Get the root directory of the Git repository
-	gitRootCmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	output, err := gitRootCmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to get git root directory: %w", err)
-	}
-	gitRoot := strings.TrimSpace(string(output))
-
-	// Define the relative path to your executable within the repository
-	relativeExecPath := "cmd/tagger"
-
-	// Join the git root and the relative path to form the full path to the executable
-	execPath := filepath.Join(gitRoot, relativeExecPath)
-
-	// Ensure the path is fully resolved if there are any symlinks
-	realExecPath, err := filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to evaluate symlinks for executable path: %w", err)
-	}
-
-	// Generate the line to be appended with the correct path
-	line := fmt.Sprintf("# Added by git-tagger\n%s -version-tag", realExecPath)
-
-	// Debugging output
-	fmt.Println("Generated line:", line)
-
-	return line, nil
+	return nil
 }
