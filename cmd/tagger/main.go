@@ -19,6 +19,9 @@ func main() {
 
 	flag.Parse()
 
+	// Detect if running in a non-interactive Git hook environment
+	isNonInteractive := os.Getenv("GIT_POST_COMMIT") != ""
+
 	// handle unparsed flags
 	utils.HandleUnparsedArgs(flag.Args())
 
@@ -26,7 +29,7 @@ func main() {
 	if *versionTagFlag {
 		branch := *branchFlag
 
-		// if branch is not specified via the flag, ask the user to select one
+		// If branch is not specified via the flag, ask the user to select one
 		if branch == "" {
 			branches, err := git.GetBranches()
 			if err != nil {
@@ -38,13 +41,18 @@ func main() {
 				os.Exit(1)
 			}
 
-			selectedBranch, err := git.SelectBranch(branches)
-			if err != nil {
-				fmt.Println("Error selecting branch:", err)
-				os.Exit(1)
+			if isNonInteractive {
+				// In non-interactive mode, choose the default branch (e.g., `main` or `master`)
+				fmt.Println("Running in non-interactive mode. Defaulting to 'main' branch.")
+				branch = "main"
+			} else {
+				selectedBranch, err := git.SelectBranch(branches)
+				if err != nil {
+					fmt.Println("Error selecting branch:", err)
+					os.Exit(1)
+				}
+				branch = selectedBranch
 			}
-
-			branch = selectedBranch
 		}
 
 		// update untagged commits for the selected branch
