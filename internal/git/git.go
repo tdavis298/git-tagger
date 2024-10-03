@@ -25,54 +25,6 @@ func CreateTag(tag, message, commit string) error {
 	return runGitCommandVoid("tag", "-a", tag, "-m", message, commit)
 }
 
-// GetLatestTag retrieves the latest semantic version tag from the git repository.
-// Returns:
-// - string: The latest tag as a string
-// - error: An error object if something went wrong or if no semantic version tags were found
-func GetLatestTag() (string, error) {
-	// Get all tags
-	tags, err := runGitCommand("tag")
-	if err != nil {
-		return "", utils.WrapErrorf("failed to retrieve tags: %w", err)
-	}
-
-	// filter tags that match the semantic versioning format
-	var semVerTags []string
-	for _, tag := range tags {
-		if isSemVer(tag) {
-			semVerTags = append(semVerTags, tag)
-		}
-	}
-
-	if len(semVerTags) == 0 {
-		return "", utils.WrapErrorf("no semantic version tags found", err)
-	}
-
-	// sort tags to find the latest version
-	sort.Slice(semVerTags, func(i, j int) bool {
-		return compareSemVer(semVerTags[i], semVerTags[j]) < 0
-	})
-
-	// return the highest (latest) version tag
-	return semVerTags[len(semVerTags)-1], nil
-}
-
-// GetTagsForCommit retrieves tags for a specific commit.
-// parameters:
-// - commit: the commit hash for which to retrieve associated tags
-// returns:
-// - []string: a slice of tag names associated with the commit
-// - error: an error object if something went wrong, otherwise nil
-func GetTagsForCommit(commit string) ([]string, error) {
-	tags, err := runGitCommand("tag", "--contains", commit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve tags for commit %s: %w", commit, err)
-	}
-	return tags, nil
-}
-
-// commit functions:
-
 // FindUntagged finds true untagged commits in a given branch.
 // parameters:
 // - branch: the branch from which to find untagged commits
@@ -100,6 +52,54 @@ func FindUntagged(branch string) ([]string, error) {
 
 	return untaggedCommits, nil
 }
+
+// GetLatestTag retrieves the latest semantic version tag from the git repository.
+// Returns:
+// - string: The latest tag as a string
+// - error: An error object if something went wrong or if no semantic version tags were found
+func GetLatestTag() (string, error) {
+	// Get all tags
+	tags, err := runGitCommand("tag")
+	if err != nil {
+		return "", utils.WrapErrorf("failed to retrieve tags: %w", err)
+	}
+
+	// filter tags that match the semantic versioning format
+	var semVerTags []string
+	for _, tag := range tags {
+		if utils.IsSemVer(tag) {
+			semVerTags = append(semVerTags, tag)
+		}
+	}
+
+	if len(semVerTags) == 0 {
+		return "", utils.WrapErrorf("no semantic version tags found", err)
+	}
+
+	// sort tags to find the latest version
+	sort.Slice(semVerTags, func(i, j int) bool {
+		return utils.CompareSemVer(semVerTags[i], semVerTags[j]) < 0
+	})
+
+	// return the highest (latest) version tag
+	return semVerTags[len(semVerTags)-1], nil
+}
+
+// GetTagsForCommit retrieves tags for a specific commit.
+// parameters:
+// - commit: the commit hash for which to retrieve associated tags
+// returns:
+// - []string: a slice of tag names associated with the commit
+// - error: an error object if something went wrong, otherwise nil
+func GetTagsForCommit(commit string) ([]string, error) {
+	tags, err := runGitCommand("tag", "--contains", commit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve tags for commit %s: %w", commit, err)
+	}
+	return tags, nil
+}
+
+// commit functions:
 
 // GetShortCommitHash retrieves the short form of a given commit hash.
 // parameters:
@@ -183,53 +183,7 @@ func SelectBranch(branches []string) (string, error) {
 	return strings.TrimSpace(branches[choice-1]), nil
 }
 
-// utility functions:
-
-// filterEmptyStrings removes empty strings from the provided slice of strings and trims whitespace from each string.
-// Parameters:
-// - slice: The slice of strings to filter
-// Returns:
-// - []string: A slice containing non-empty, trimmed strings
-func compareSemVer(a, b string) int {
-	aParts := strings.Split(a[1:], ".")
-	bParts := strings.Split(b[1:], ".")
-
-	for i := 0; i < 3; i++ {
-		aNum, _ := strconv.Atoi(aParts[i])
-		bNum, _ := strconv.Atoi(bParts[i])
-
-		if aNum < bNum {
-			return -1
-		} else if aNum > bNum {
-			return 1
-		}
-	}
-	return 0
-}
-
-// filterEmptyStrings removes empty or whitespace-only strings from a slice.
-// parameters:
-// - slice: a slice of strings to filter
-// returns:
-// - []string: a slice containing only non-empty strings
-func filterEmptyStrings(slice []string) []string {
-	var result []string
-	for _, str := range slice {
-		if trimmed := strings.TrimSpace(str); trimmed != "" {
-			result = append(result, trimmed)
-		}
-	}
-	return result
-}
-
-// isSemVer checks if a given string is a semantic version
-// parameters:
-// - version: the version string to check
-// returns:
-// - bool: true if the string is a semantic version, otherwise false
-func isSemVer(tag string) bool {
-	return strings.HasPrefix(tag, "v") && len(strings.Split(tag[1:], ".")) == 3
-}
+// utility functions
 
 // runGitCommand executes a git command and returns the output as a slice of strings
 // parameters:
@@ -246,7 +200,7 @@ func runGitCommand(args ...string) ([]string, error) {
 	}
 
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	return filterEmptyStrings(lines), nil
+	return utils.FilterEmptyStrings(lines), nil
 }
 
 // runGitCommandVoid executes a git command without requiring the output

@@ -187,9 +187,7 @@ func generateHookContent() (string, error) {
 	}
 
 	// Generate the full script to be added as the post-commit hook
-	hookContent := fmt.Sprintf(`#!/bin/sh
-
-# Added by versioning tool
+	hookContent := fmt.Sprintf(`# Added by versioning tool
 # This script triggers the versioning logic after every commit.
 
 # Navigate to the Git project root

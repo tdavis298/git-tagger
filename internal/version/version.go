@@ -3,8 +3,8 @@ package version
 import (
 	"fmt"
 	"git-tagger/internal/git"
+	"git-tagger/internal/utils"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -19,6 +19,11 @@ import (
 // - string: the new incremented version tag
 // - error: an error object if something went wrong, otherwise nil
 func IncrementVersion(latestTag string, level string) (string, error) {
+	// Validate the format of the latestTag
+	if !utils.IsSemVer(latestTag) {
+		return "", fmt.Errorf("invalid version format: %s", latestTag)
+	}
+
 	parts := strings.Split(strings.TrimPrefix(latestTag, "v"), ".")
 	if len(parts) != 3 {
 		return "", fmt.Errorf("invalid version format: %s", latestTag)
@@ -72,38 +77,26 @@ func UpdateUntaggedCommits(branch string) error {
 		latestTag = "v0.0.0"
 	}
 
-	// Track the current version for tagging
-	currentTag := latestTag
+	// Strip any hash suffix to get the core version for incrementing
+	coreVersion := utils.StripHashSuffix(latestTag)
 
-	// Iterate through untagged commits from oldest to newest
-	for _, commit := range untaggedCommits {
-		// Get the commit message
+	// Track the current version for tagging
+	currentTag := coreVersion
+
+	// Now proceed to tag all untagged commits from the oldest to the most recent
+	for _, commit := range untaggedCommits { // Get the commit message
 		message, err := git.GetCommitMessage(commit)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve commit message for %s: %w", commit, err)
 		}
 
-		// Check if the commit message contains a version tag
-		incrementLevel, versionFromMessage := determineIncrementLevel(message)
+		// Determine the increment level based on the commit message
+		incrementLevel := determineIncrementLevel(message)
 
-		// If a version tag is found in the message, update the currentTag to that version
-		if versionFromMessage != "" {
-			currentTag = versionFromMessage
-		} else {
-			// Otherwise, reference existing tags
-			tags, err := git.GetTagsForCommit(commit)
-			if err != nil {
-				return fmt.Errorf("failed to get tags for commit %s: %w", commit, err)
-			}
-			if len(tags) > 0 {
-				currentTag = tags[0] // Assuming the first tag is the most relevant; adjust based on further logic if needed
-			} else {
-				// Increment the tag version based on the commit message
-				currentTag, err = IncrementVersion(currentTag, incrementLevel)
-				if err != nil {
-					return fmt.Errorf("failed to increment version: %w", err)
-				}
-			}
+		// Increment the tag version for the current commit
+		currentTag, err = IncrementVersion(currentTag, incrementLevel)
+		if err != nil {
+			return fmt.Errorf("failed to increment version for commit %s: %w", commit, err)
 		}
 
 		// Get the short hash of the commit
@@ -119,7 +112,6 @@ func UpdateUntaggedCommits(branch string) error {
 
 		// Create a tag for the untagged commit
 		err = git.CreateTag(tagWithHash, fmt.Sprintf("Automated tagging for commit %s", commit), commit)
-
 		if err != nil {
 			return fmt.Errorf("failed to create tag %s for commit %s: %w", tagWithHash, commit, err)
 		}
@@ -134,37 +126,29 @@ func UpdateUntaggedCommits(branch string) error {
 // - commitMessage: the commit message to analyze
 // returns:
 // - string: the level of version increment (major, minor, patch)
-// - string: any version found within the message
-func determineIncrementLevel(commitMessage string) (string, string) {
+func determineIncrementLevel(commitMessage string) string {
 	if strings.Contains(commitMessage, "BREAKING CHANGE") {
-		return "major", ""
+		return "major"
 	} else if strings.HasPrefix(commitMessage, "feat") {
-		return "minor", ""
+		return "minor"
 	} else if strings.HasPrefix(commitMessage, "fix") {
-		return "patch", ""
+		return "patch"
 	}
 
-	// Check if the commit message contains a version tag
-	versionTag := extractVersionTag(commitMessage)
-	if versionTag != "" {
-		fmt.Printf("Version tag \"%s\" found in commit message. Using this as the base version.\n", versionTag)
-		return "", versionTag
-	}
-
-	// Notify user if commit message is unrecognized
+	// Default to "patch" if the message doesn't match any known pattern
 	fmt.Printf("Unrecognized commit message: \"%s\". Defaulting to patch update.\n", commitMessage)
-	return "patch", "" // Default to patch if none of the keywords match
+	return "patch"
 }
 
-// utility functions
+/* utility functions
 
 // extractVersionTag extracts a semantic version tag from a commit message.
 // parameters:
 // - commitMessage: the commit message from which to extract the version tag
 // returns:
 // - string: the extracted version tag, or an empty string if none is found
-func extractVersionTag(commitMessage string) string {
+ func extractVersionTag(commitMessage string) string {
 	versionPattern := regexp.MustCompile(`v\d+\.\d+\.\d+`)
 	versionTag := versionPattern.FindString(commitMessage)
 	return versionTag
-}
+}*/
