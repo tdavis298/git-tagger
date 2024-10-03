@@ -35,7 +35,8 @@ func FindUntagged(branch string) ([]string, error) {
 	// get all commits on the branch
 	commits, err := runGitCommand("rev-list", "--reverse", branch)
 	if err != nil {
-		return nil, err
+		fmt.Printf("Error retrieving commits for branch '%s': %v\n", branch, err)
+		return nil, fmt.Errorf("failed to find untagged commits: %w", err)
 	}
 
 	// filter out commits that already have tags
@@ -161,7 +162,13 @@ func GetCurrentBranch() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get current branch: %w", err)
 	}
-	return strings.TrimSpace(string(out)), nil
+
+	branchName := strings.TrimSpace(string(out))
+	if branchName == "HEAD" {
+		return "", fmt.Errorf("detached HEAD state: not currently on any branch")
+	}
+
+	return branchName, nil
 }
 
 // SelectBranch lets the user choose a branch from the list of branches
