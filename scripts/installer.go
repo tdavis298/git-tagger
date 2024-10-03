@@ -85,22 +85,39 @@ func InstallGitHook(executablePath string) error {
 		return utils.WrapErrorf("failed to resolve absolute path: %w", err)
 	}
 
+	// Generate the hook content
+	hookContent := fmt.Sprintf("# Added by versioning tool\n%s -version-tag", absPath)
+
 	// Check if the hook file already exists
 	if _, err := os.Stat(hookDest); err == nil {
-		// Hook exists, modify it...
-		fmt.Println("A post-commit hook already exists. Checking for required line...")
+		// Hook exists, check for the necessary content
+		fmt.Println("A post-commit hook already exists. Checking for required content...")
 
-		// (Add logic to check if the hook already contains necessary lines...)
+		// Read the current hook content
+		hookContains, err := hookContainsLine(hookDest, hookContent)
+		if err != nil {
+			return utils.WrapErrorf("failed to check existing hook content: %w", err)
+		}
+
+		if hookContains {
+			fmt.Println("The post-commit hook already contains the necessary content.")
+			return nil
+		}
+
+		// Append the required content if not already present
+		err = appendLineToFile(hookDest, hookContent)
+		if err != nil {
+			return utils.WrapErrorf("failed to append content to existing post-commit hook: %w", err)
+		}
+		fmt.Println("Appended content to existing post-commit hook.")
 		return nil
 	}
 
 	// If the hook does not exist, create it and add the necessary content
 	fmt.Println("No existing post-commit hook found. Installing new hook.")
 
-	hookContent := fmt.Sprintf("#!/bin/sh\n\n# Added by versioning tool\n%s -version-tag", absPath)
-
 	// Write the new hook content
-	err = os.WriteFile(hookDest, []byte(hookContent), 0755)
+	err = writeFile(hookDest, hookContent)
 	if err != nil {
 		return utils.WrapErrorf("failed to write post-commit hook: %w", err)
 	}
