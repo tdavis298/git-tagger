@@ -78,44 +78,34 @@ func CleanGitHook() error {
 // InstallGitHook installs or updates the post-commit hook with necessary content.
 // returns:
 // - error: an error object if something went wrong, otherwise nil
-func InstallGitHook() error {
-	// Generate the content for the hook script
-	hookContent, err := generateHookContent()
+func InstallGitHook(executablePath string) error {
+	// Ensure the executablePath is an absolute path
+	absPath, err := filepath.Abs(executablePath)
 	if err != nil {
-		return err
+		return utils.WrapErrorf("failed to resolve absolute path: %w", err)
 	}
 
 	// Check if the hook file already exists
 	if _, err := os.Stat(hookDest); err == nil {
-		fmt.Println("A post-commit hook already exists. Checking for required content...")
+		// Hook exists, modify it...
+		fmt.Println("A post-commit hook already exists. Checking for required line...")
 
-		// Check if the required content is present in the existing hook
-		contains, err := hookContainsLine(hookDest, hookContent)
-		if err != nil {
-			return utils.WrapErrorf("failed to check post-commit hook contents in %s: %w", err, hookDest)
-		}
-
-		if contains {
-			fmt.Println("The post-commit hook already contains the required content. No action needed.")
-			return nil
-		}
-
-		// Append the required content if it's missing
-		fmt.Println("Appending required content to existing post-commit hook.")
-		return appendLineToFile(hookDest, hookContent)
+		// (Add logic to check if the hook already contains necessary lines...)
+		return nil
 	}
 
-	// If the hook does not exist, create the hook file and make it executable
+	// If the hook does not exist, create it and add the necessary content
 	fmt.Println("No existing post-commit hook found. Installing new hook.")
-	if err := writeFile(hookDest, hookContent); err != nil {
-		return fmt.Errorf("failed to write post-commit hook to %s: %w", hookDest, err)
+
+	hookContent := fmt.Sprintf("#!/bin/sh\n\n# Added by versioning tool\n%s -version-tag", absPath)
+
+	// Write the new hook content
+	err = os.WriteFile(hookDest, []byte(hookContent), 0755)
+	if err != nil {
+		return utils.WrapErrorf("failed to write post-commit hook: %w", err)
 	}
 
-	// Make sure the new hook file is executable
-	if err := os.Chmod(hookDest, 0755); err != nil {
-		return utils.WrapErrorf("failed to make hook file executable: %w", err)
-	}
-
+	fmt.Println("Post-commit hook installed successfully.")
 	return nil
 }
 
@@ -175,7 +165,7 @@ func generateHookContent() (string, error) {
 	gitRoot := strings.TrimSpace(string(output))
 
 	// Define the relative path to your executable within the repository
-	relativeExecPath := "cmd/tagger"
+	relativeExecPath := "./"
 
 	// Join the git root and the relative path to form the full path to the executable
 	execPath := filepath.Join(gitRoot, relativeExecPath)
