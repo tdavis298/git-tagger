@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// utility functions:
+// ---------- Utility Functions ----------
 
 // CompareSemVer compares two semantic version strings.
 // Parameters:

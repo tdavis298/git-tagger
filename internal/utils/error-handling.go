@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// argument handling functions:
+// ---------- Argument Handling Functions ----------
 
 // HandleUnparsedArgs handles any unparsed command-line arguments by printing an error message and exiting.
 // parameters:
