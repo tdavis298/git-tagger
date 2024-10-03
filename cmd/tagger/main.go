@@ -33,6 +33,12 @@ func main() {
 			os.Exit(1)
 		}
 
+		// Ensure that the branch is not empty
+		if currentBranch == "" {
+			fmt.Println("Error: Current branch is not specified or repository is in a detached HEAD state.")
+			os.Exit(1)
+		}
+
 		// Update untagged commits for the current branch
 		err = version.UpdateUntaggedCommits(currentBranch)
 		if err != nil {
