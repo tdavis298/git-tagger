@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// version functions
+// ---------- Version Functions ----------
 
 // IncrementVersion increments a semantic version based on a single level.
 // parameters:
