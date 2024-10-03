@@ -151,6 +151,19 @@ func GetBranches() ([]string, error) {
 	return branches, nil
 }
 
+// GetCurrentBranch retrieves the name of the currently checked-out branch.
+// Returns:
+// - string: The name of the current branch
+// - error: An error object if something went wrong, otherwise nil
+func GetCurrentBranch() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // SelectBranch lets the user choose a branch from the list of branches
 // parameters:
 // - branches: a slice of strings containing the branch names to choose from

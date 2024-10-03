@@ -22,6 +22,28 @@ func main() {
 	// Detect if running in a non-interactive Git hook environment
 	isNonInteractive := os.Getenv("GIT_POST_COMMIT") != ""
 
+	// Handle non-interactive mode immediately if detected
+	if isNonInteractive {
+		fmt.Println("Running in non-interactive mode...")
+
+		// Get the currently checked out branch
+		currentBranch, err := git.GetCurrentBranch()
+		if err != nil {
+			fmt.Println("Failed to get the current branch:", err)
+			os.Exit(1)
+		}
+
+		// Update untagged commits for the current branch
+		err = version.UpdateUntaggedCommits(currentBranch)
+		if err != nil {
+			fmt.Println("Failed to update untagged commits:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Version-tagged untagged commits successfully on branch:", currentBranch)
+		return
+	}
+
 	// handle unparsed flags
 	utils.HandleUnparsedArgs(flag.Args())
 
@@ -39,19 +61,6 @@ func main() {
 			if len(branches) == 0 {
 				fmt.Println("No branches found in the repository.")
 				os.Exit(1)
-			}
-
-			if isNonInteractive {
-				// In non-interactive mode, choose the default branch (e.g., `main` or `master`)
-				fmt.Println("Running in non-interactive mode. Defaulting to 'main' branch.")
-				branch = "main"
-			} else {
-				selectedBranch, err := git.SelectBranch(branches)
-				if err != nil {
-					fmt.Println("Error selecting branch:", err)
-					os.Exit(1)
-				}
-				branch = selectedBranch
 			}
 		}
 
