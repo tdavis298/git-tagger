@@ -239,7 +239,7 @@ func generateHookContent() (string, error) {
 	// Generate the full script to be added as the post-commit hook
 	hookContent := fmt.Sprintf(`# Added by versioning tool
 
-# export GIT_POST_COMMIT="true"
+export GIT_POST_COMMIT="true"
 
 # Execute the versioning tool
 "%s" -version-tag
