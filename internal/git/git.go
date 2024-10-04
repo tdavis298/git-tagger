@@ -1,14 +1,11 @@
 package git
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"git-tagger/internal/utils"
-	"os"
 	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -175,7 +172,7 @@ func GetCurrentBranch() (string, error) {
 	return branchName, nil
 }
 
-// SelectBranch lets the user choose a branch from the list of branches
+/* SelectBranch lets the user choose a branch from the list of branches
 // parameters:
 // - branches: a slice of strings containing the branch names to choose from
 // returns:
@@ -206,6 +203,7 @@ func SelectBranch(branches []string) (string, error) {
 	// Return the selected branch
 	return strings.TrimSpace(branches[choice-1]), nil
 }
+*/
 
 // ---------- Utility Functions ----------
 
