@@ -78,6 +78,7 @@ func main() {
 		}
 
 		fmt.Println("Version-tagged untagged files successfully.")
+		os.Exit(0)
 		return
 	}
 
