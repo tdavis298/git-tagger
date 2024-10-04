@@ -1,0 +1,171 @@
+To be formatted later
+
+Git Tagger
+
+Git Tagger is a command-line tool designed to manage semantic versioning in Git repositories. It provides automatic tagging based on commit messages and ensures proper version control for your project.
+Table of Contents
+
+    Features
+    Installation
+    Usage
+    Configuration
+    Post-Commit Hook
+    Testing
+    Troubleshooting
+    Contributing
+    License
+
+Features
+
+    Semantic Versioning: Automatically applies semantic versioning based on commit messages.
+    Git Hooks: Provides functionality to use Git hooks (e.g., post-commit) for tagging automation.
+    Platform Agnostic: Works across different operating systems (Windows, Linux, WSL).
+    Customizable: Provides configuration options for username, email, and versioning behavior.
+
+Installation
+Prerequisites
+
+    Git: Ensure Git is installed and available in your PATH.
+    Go: The project is written in Go, so you'll need Go installed to build and run the tool.
+
+Download and Build
+
+    Clone the repository:
+
+    bash
+
+git clone https://github.com/your-username/git-tagger.git
+cd git-tagger
+
+Build the project:
+
+bash
+
+go build -o bin/tagger ./cmd/tagger
+
+Verify the build:
+
+bash
+
+    ./bin/tagger --help
+
+Usage
+Tagging Commits
+
+To tag your latest commit based on its message, run:
+
+bash
+
+./bin/tagger -version-tag
+
+This will analyze the latest commit message and apply the appropriate semantic version tag (e.g., v1.2.3).
+Cleaning Git Hooks
+
+To remove any hooks that have been added by the tool:
+
+bash
+
+./bin/tagger -clean
+
+Configuration
+Setting Up Git User Information
+
+Make sure to set your Git username and email for commits:
+
+bash
+
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+
+If running tests, temporary Git user information will be set for testing purposes.
+Managing Versioning
+
+The tool follows semantic versioning, using keywords in commit messages to increment the version:
+
+    Major: BREAKING CHANGE: or major in commit message.
+    Minor: feat: or minor in commit message.
+    Patch: fix: or patch in commit message.
+
+Post-Commit Hook
+
+You can set up a post-commit Git hook to automatically tag commits after each commit:
+
+    Create the hook script:
+
+    bash
+
+./bin/tagger -install-hook
+
+This will generate a post-commit hook that will run the following script:
+
+bash
+
+    ./bin/tagger -version-tag
+
+To remove the post-commit hook:
+
+bash
+
+./bin/tagger -clean
+
+Testing
+Running Tests
+
+The project includes tests for various functionalities, including versioning and Git operations. Tests are designed to work across different platforms (Windows, Linux, WSL).
+
+    Run All Tests:
+
+    bash
+
+go test ./...
+
+Run Specific Test:
+
+bash
+
+    go test -run TestName ./internal/git
+
+    Debugging: To print debug information during tests, use t.Logf or fmt.Println for output.
+
+Non-Interactive Tests
+
+Some tests are designed to run non-interactively. If a test involves a Git hook or requires special conditions, set the required environment variable:
+
+bash
+
+export GIT_TAGGER_NON_INTERACTIVE=true
+
+Troubleshooting
+No Tags Found on the Branch
+
+If the tool encounters an issue where no tags are found, a default tag (v0.1.0) will be applied to the branch. Ensure that your commit messages contain appropriate semantic keywords.
+Running in Different Environments
+
+If running on WSL or other non-standard environments, make sure that Git and Go are correctly installed and accessible within the environment.
+Contributing
+
+Contributions are welcome! Please submit issues or pull requests to improve the tool. Make sure to run tests and follow semantic versioning practices.
+
+    Fork the repo and create your branch:
+
+    bash
+
+git checkout -b feature/my-feature
+
+Commit your changes with a meaningful message:
+
+bash
+
+git commit -m "feat: Add new feature"
+
+Push your branch:
+
+bash
+
+    git push origin feature/my-feature
+
+    Open a pull request on GitHub.
+
+License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
