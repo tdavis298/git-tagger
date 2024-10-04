@@ -74,7 +74,10 @@ func GetLatestTag() (string, error) {
 	}
 
 	if len(semVerTags) == 0 {
-		return "", utils.WrapErrorf("no semantic version tags found", err)
+		defaultTag := "v0.0.0"
+		fmt.Printf("No semantic version tags found. Defaulting to '%s'\n", defaultTag)
+
+		return defaultTag, nil
 	}
 
 	// sort tags to find the latest version
