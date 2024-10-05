@@ -33,7 +33,7 @@ func FindUntagged(branch string) ([]string, error) {
 	commits, err := RunGitCommand("rev-list", "--reverse", branch)
 	if err != nil {
 		fmt.Printf("error retrieving commits for branch '%s': %v\n", branch, err)
-		return nil, fmt.Errorf("failed to find untagged commits: %w", err)
+		return nil, utils.WrapErrorf("failed to find untagged commits: %w", err)
 	}
 
 	// filter out commits that already have tags
@@ -71,10 +71,7 @@ func GetLatestTag() (string, error) {
 	}
 
 	if len(semVerTags) == 0 {
-		defaultTag := "v0.0.0"
-		fmt.Printf("No semantic version tags found. Defaulting to '%s'\n", defaultTag)
-
-		return defaultTag, nil
+		return "", utils.WrapErrorf("no semantic version tags found", err)
 	}
 
 	// sort tags to find the latest version
@@ -112,7 +109,7 @@ func GetShortCommitHash(commit string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--short", commit)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get short hash: %w", err)
+		return "", utils.WrapErrorf("failed to get short hash: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -127,7 +124,7 @@ func GetCommitMessage(commit string) (string, error) {
 	cmd := exec.Command("git", "show", "-s", "--format=%s", commit)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get commit message: %w", err)
+		return "", utils.WrapErrorf("failed to get commit message: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -160,7 +157,7 @@ func GetCurrentBranch() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get current branch: %w", err)
+		return "", utils.WrapErrorf("failed to get current branch: %w", err)
 	}
 
 	// Ensure any extra spaces or newlines are trimmed
@@ -203,7 +200,7 @@ func SelectBranch(branches []string) (string, error) {
 	// Return the selected branch
 	return strings.TrimSpace(branches[choice-1]), nil
 }
-*/
+ */
 
 // ---------- Utility Functions ----------
 
