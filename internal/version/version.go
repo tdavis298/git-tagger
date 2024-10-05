@@ -61,7 +61,7 @@ func UpdateUntaggedCommits(branch string) error {
 	// Find all untagged commits
 	untaggedCommits, err := git.FindUntagged(branch)
 	if err != nil {
-		return fmt.Errorf("failed to find untagged commits: %w", err)
+		return utils.WrapErrorf("failed to find untagged commits: %w", err)
 	}
 
 	if len(untaggedCommits) == 0 {
