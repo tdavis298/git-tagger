@@ -12,7 +12,7 @@ import (
 
 // ---------- File Utility Functions ----------
 
-// appendLineToFile appends a line to a file, ensuring the file is executable.
+// AppendLineToFile appends a line to a file, ensuring the file is executable.
 // parameters:
 // - filePath: the path to the file to which the line should be appended
 // - line: the line to append to the file
@@ -37,7 +37,7 @@ func AppendLineToFile(filePath, content string) error {
 	return os.Chmod(filePath, 0755)
 }
 
-// convertToUnixPath converts a Windows-style file path to a Unix-style file path.
+// ConvertToUnixPath converts a Windows-style file path to a Unix-style file path.
 // It is particularly useful for compatibility in environments that require Unix-style paths,
 // such as Windows Subsystem for Linux (WSL).
 //
@@ -58,7 +58,7 @@ func ConvertToUnixPath(path string) string {
 	return strings.ToLower(path)
 }
 
-// hookContainsFullContent checks if a given line is present in a slice of hook lines.
+// HookContainsFullContent checks if a given line is present in a slice of hook lines.
 // parameters:
 // - line: the line to check for
 // - hookLines: the slice of hook lines to check within
@@ -73,7 +73,7 @@ func HookContainsFullContent(filePath, requiredContent string) (bool, error) {
 	return strings.Contains(string(fileContent), strings.TrimSpace(requiredContent)), nil
 }
 
-// generateHookContent generates the content for a git post-commit hook.
+// GenerateHookContent generates the content for a git post-commit hook.
 // returns:
 // - string: the generated hook content
 // - error: an error object if something went wrong, otherwise nil
@@ -158,7 +158,7 @@ func hookContainsLine(filePath, requiredContent string) (bool, error) {
 }
 */
 
-// writeFile writes content to a file, creating or truncating the file first.
+// WriteFile writes content to a file, creating or truncating the file first.
 // parameters:
 // - filePath: the path to the file to write to
 // - content: the content to write to the file
