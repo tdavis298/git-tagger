@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"git-tagger/internal/git"
+	"git-tagger/internal/hooks"
 	"git-tagger/internal/utils"
 	"git-tagger/internal/version"
-	"git-tagger/scripts"
 	"os"
 )
 
@@ -26,24 +26,26 @@ func main() {
 	if isNonInteractive {
 		fmt.Println("Running in non-interactive mode...")
 
+		// Verify we're in a Git repository
+		if _, err := os.Stat(".git"); os.IsNotExist(err) {
+			utils.LogAndExit("No Git repository found in the current directory", nil)
+		}
+
 		// Get the currently checked out branch
 		currentBranch, err := git.GetCurrentBranch()
 		if err != nil {
-			fmt.Println("Failed to get the current branch:", err)
-			os.Exit(1)
+			utils.LogAndExit("Failed to get the current branch", err)
 		}
 
 		// Ensure that the branch is not empty
 		if currentBranch == "" {
-			fmt.Println("Error: Current branch is not specified or repository is in a detached HEAD state.")
-			os.Exit(1)
+			utils.LogAndExit("Current branch is not specified or repository is in a detached HEAD state", nil)
 		}
 
 		// Update untagged commits for the current branch
 		err = version.UpdateUntaggedCommits(currentBranch)
 		if err != nil {
-			fmt.Println("Failed to update untagged commits:", err)
-			os.Exit(1)
+			utils.LogAndExit("Failed to update untagged commits", err)
 		}
 
 		fmt.Println("Version-tagged untagged commits successfully on branch:", currentBranch)
@@ -61,56 +63,32 @@ func main() {
 		if branch == "" {
 			branches, err := git.GetBranches()
 			if err != nil {
-				fmt.Println("Failed to get branches:", err)
-				os.Exit(1)
+				utils.LogAndExit("Failed to get branches", err)
 			}
 			if len(branches) == 0 {
-				fmt.Println("No branches found in the repository.")
-				os.Exit(1)
+				utils.LogAndExit("No branches found in the repository", nil)
 			}
 		}
 
 		// update untagged commits for the selected branch
 		err := version.UpdateUntaggedCommits(branch)
 		if err != nil {
-			fmt.Println("Failed to update untagged commits:", err)
-			os.Exit(1)
+			utils.LogAndExit("Failed to update untagged commits", err)
 		}
 
 		fmt.Println("Version-tagged untagged files successfully.")
+		os.Exit(0)
 		return
 	}
 
-	// if the install flag is provided, install hook
+	// If the install flag is provided, install hook
 	if *installFlag {
-		// set project root and output paths
-		projectRoot := "."       // assuming current directory is the project root; adjust if necessary
 		outputPath := "./tagger" // output path for the binary
 
-		// check to see if the build is necessary
-		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-			fmt.Println("Building the Go executable...")
-			err = utils.BuildExecutable(projectRoot, outputPath)
-			if err != nil {
-				fmt.Println("Failed to build the executable:", err)
-				os.Exit(1)
-			}
-		} else {
-			fmt.Println("Executable already exists at:", outputPath)
-		}
-
-		// build the Go executable
-		err := utils.BuildExecutable(projectRoot, outputPath)
-		if err != nil {
-			fmt.Println("Failed to build the executable:", err)
-			os.Exit(1)
-		}
-
 		// install the Git hook
-		err = scripts.InstallGitHook(outputPath)
+		err := hooks.InstallGitHook(outputPath)
 		if err != nil {
-			fmt.Println("Failed to install Git hook:", err)
-			os.Exit(1)
+			utils.LogAndExit("Failed to install Git hook", err)
 		}
 		fmt.Println("Git post-commit hook installed successfully.")
 		return
@@ -118,10 +96,9 @@ func main() {
 
 	// If the uninstall flag is provided, clean the Git hook
 	if *uninstallFlag {
-		err := scripts.CleanGitHook()
+		err := hooks.CleanGitHook()
 		if err != nil {
-			fmt.Println("Failed to uninstall Git hook:", err)
-			os.Exit(1)
+			utils.LogAndExit("Failed to uninstall Git hook", err)
 		}
 		fmt.Println("Git post-commit hook uninstalled successfully.")
 		return

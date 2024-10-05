@@ -34,10 +34,24 @@ func HandleUnparsedArgs(args []string) {
 // - args: additional arguments for formatting the error message
 // Returns:
 // - an error wrapped with the specified message if it occurred, otherwise nil
-func WrapErrorf(format string, err error, args ...interface{}) error {
+func WrapErrorf(format string, err error) error {
 	if err != nil {
-		// Ensure error wrapping is done correctly with fmt.Errorf
-		return fmt.Errorf(format+": %w", append(args, err)...)
+		// Correctly wrap the error with additional context
+		return fmt.Errorf(format+": %w", err)
 	}
 	return nil
+}
+
+// LogAndExit logs the error message along with context and exits the program.
+func LogAndExit(context string, err error) {
+	// Print a formatted error message including the context and error details
+	if err != nil {
+		_, err := fmt.Fprintf(os.Stderr, "Error - %s: %v\n", context, err)
+		if err != nil {
+			return
+		}
+	} else {
+		_, _ = fmt.Fprintf(os.Stderr, "Error - %s\n", context)
+	}
+	os.Exit(1)
 }

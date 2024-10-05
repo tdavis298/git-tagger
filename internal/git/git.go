@@ -1,14 +1,11 @@
 package git
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"git-tagger/internal/utils"
-	"os"
+	utils2 "git-tagger/internal/utils"
 	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -36,7 +33,7 @@ func FindUntagged(branch string) ([]string, error) {
 	commits, err := RunGitCommand("rev-list", "--reverse", branch)
 	if err != nil {
 		fmt.Printf("error retrieving commits for branch '%s': %v\n", branch, err)
-		return nil, fmt.Errorf("failed to find untagged commits: %w", err)
+		return nil, utils2.WrapErrorf("failed to find untagged commits: %w", err)
 	}
 
 	// filter out commits that already have tags
@@ -62,24 +59,27 @@ func GetLatestTag() (string, error) {
 	// Get all tags
 	tags, err := RunGitCommand("tag")
 	if err != nil {
-		return "", utils.WrapErrorf("failed to retrieve tags: %w", err)
+		return "", utils2.WrapErrorf("failed to retrieve tags: %w", err)
 	}
 
 	// filter tags that match the semantic versioning format
 	var semVerTags []string
 	for _, tag := range tags {
-		if utils.IsSemVer(tag) {
+		if utils2.IsSemVer(tag) {
 			semVerTags = append(semVerTags, tag)
 		}
 	}
 
 	if len(semVerTags) == 0 {
-		return "", utils.WrapErrorf("no semantic version tags found", err)
+		defaultTag := "v0.0.0"
+		fmt.Printf("No semantic version tags found. Defaulting to '%s'\n", defaultTag)
+
+		return defaultTag, nil
 	}
 
 	// sort tags to find the latest version
 	sort.Slice(semVerTags, func(i, j int) bool {
-		return utils.CompareSemVer(semVerTags[i], semVerTags[j]) < 0
+		return utils2.CompareSemVer(semVerTags[i], semVerTags[j]) < 0
 	})
 
 	// return the highest (latest) version tag
@@ -112,7 +112,7 @@ func GetShortCommitHash(commit string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--short", commit)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get short hash: %w", err)
+		return "", utils2.WrapErrorf("failed to get short hash: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -127,7 +127,7 @@ func GetCommitMessage(commit string) (string, error) {
 	cmd := exec.Command("git", "show", "-s", "--format=%s", commit)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get commit message: %w", err)
+		return "", utils2.WrapErrorf("failed to get commit message: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -160,7 +160,7 @@ func GetCurrentBranch() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get current branch: %w", err)
+		return "", utils2.WrapErrorf("failed to get current branch: %w", err)
 	}
 
 	// Ensure any extra spaces or newlines are trimmed
@@ -172,7 +172,7 @@ func GetCurrentBranch() (string, error) {
 	return branchName, nil
 }
 
-// SelectBranch lets the user choose a branch from the list of branches
+/* SelectBranch lets the user choose a branch from the list of branches
 // parameters:
 // - branches: a slice of strings containing the branch names to choose from
 // returns:
@@ -203,6 +203,7 @@ func SelectBranch(branches []string) (string, error) {
 	// Return the selected branch
 	return strings.TrimSpace(branches[choice-1]), nil
 }
+*/
 
 // ---------- Utility Functions ----------
 
@@ -217,11 +218,11 @@ func RunGitCommand(args ...string) ([]string, error) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to run git command: %w", err)
+		return nil, utils2.WrapErrorf("failed to run git command: %w", err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	return utils.FilterEmptyStrings(lines), nil
+	return utils2.FilterEmptyStrings(lines), nil
 }
 
 // runGitCommandVoid executes a git command without requiring the output
@@ -232,7 +233,7 @@ func RunGitCommand(args ...string) ([]string, error) {
 func runGitCommandVoid(args ...string) error {
 	cmd := exec.Command("git", args...)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to run git command: %w", err)
+		return utils2.WrapErrorf("failed to run git command: %w", err)
 	}
 	return nil
 }
