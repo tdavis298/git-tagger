@@ -1,39 +1,18 @@
 package testutils
 
 import (
+	"errors"
+	"golang.org/x/sys/windows"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
-// SetupTestRepo initializes a new Git repository for testing.
-func SetupTestRepo(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-repo")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-
-	t.Cleanup(func() {
-		err := os.RemoveAll(tempDir)
-		if err != nil {
-			t.Fatalf("Failed to clean up temp directory: %v", err)
-		}
-	})
-
-	// Change to the temporary directory
-	err = os.Chdir(tempDir)
-	if err != nil {
-		t.Fatalf("Failed to change directory: %v", err)
-	}
-
-	// Initialize a new Git repository
-	RunGitCommand(t, "init")
-
-	// Create an initial commit
-	CreateAndCommitFile(t, "README.md", "Initial commit")
-}
+const maxRetries = 3
+const retryDelay = time.Second
 
 // CreateAndCommitFile creates a file with the specified filename and commits it.
 func CreateAndCommitFile(t *testing.T, filename, commitMsg string) {
@@ -133,6 +112,25 @@ func RunGitCommandAndGetOutput(t *testing.T, args ...string) string {
 	return strings.TrimSpace(string(output))
 }
 
+// SetupTestRepo initializes a new Git repository for testing.
+func SetupTestRepo(t *testing.T) {
+	tempDir := createTempDir(t)
+	defer cleanupTempDir(t, tempDir)
+
+	changeDir(t, tempDir)
+	initializeRepo(t)
+
+	// Set up a test author
+	RunGitCommand(t, "config", "user.name", "Test User")
+	RunGitCommand(t, "config", "user.email", "<EMAIL>")
+
+	// Set up the branch
+	RunGitCommand(t, "checkout", "-b", "main")
+
+	// Create an initial commit
+	CreateAndCommitFile(t, "README.md", "Initial commit")
+}
+
 // VerifyCommitMessage checks if the commit with the given hash has the expected commit message.
 func VerifyCommitMessage(t *testing.T, commitHash, expectedMessage string) {
 	// Get the commit message of the specified commit
@@ -156,21 +154,40 @@ func GetShortCommitHash(t *testing.T, commitRef string) string {
 func GetCurrentBranch(t *testing.T) string {
 	return RunGitCommandAndGetOutput(t, "rev-parse", "--abbrev-ref", "HEAD")
 }
+*/
 
-// CreatePostCommitHook creates a post-commit hook with the provided script content.
-func CreatePostCommitHook(t *testing.T, scriptContent string) {
-	hookDir := filepath.Join(".git", "hooks")
-	hookPath := filepath.Join(hookDir, "post-commit")
-
-	// Create hooks directory if it doesn't exist
-	if err := os.MkdirAll(hookDir, 0755); err != nil {
-		t.Fatalf("Failed to create hooks directory: %v", err)
-	}
-
-	// Write the script to the post-commit hook file
-	err := os.WriteFile(hookPath, []byte(scriptContent), 0755)
+func createTempDir(t *testing.T) string {
+	tempDir, err := os.MkdirTemp("", "test-repo")
 	if err != nil {
-		t.Fatalf("Failed to create post-commit hook: %v", err)
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	return tempDir
+}
+
+func cleanupTempDir(t *testing.T, tempDir string) {
+	for attempts := 0; attempts < maxRetries; attempts++ {
+		err := os.RemoveAll(tempDir)
+		if err == nil {
+			return
+		}
+		var pathErr *os.PathError
+		if errors.As(err, &pathErr) && errors.Is(pathErr.Err, windows.ERROR_SHARING_VIOLATION) {
+			t.Logf("Attempt %d: temp directory is in use, retrying...", attempts+1)
+			time.Sleep(retryDelay)
+		} else {
+			t.Fatalf("Unexpected error while removing temp directory: %v", err)
+		}
+	}
+	t.Fatalf("Failed to clean up temp directory after %d attempts due to sharing violation", maxRetries)
+}
+
+func changeDir(t *testing.T, dir string) {
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
 	}
 }
-*/
+
+func initializeRepo(t *testing.T) {
+	RunGitCommand(t, "init")
+}
