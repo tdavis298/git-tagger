@@ -8,8 +8,12 @@ import (
 	"testing"
 )
 
-func TestFindUntagged(t *testing.T) {
+func setup(t *testing.T) {
 	testutils.SetupTestRepo(t)
+}
+
+func TestFindUntagged(t *testing.T) {
+	setup(t)
 
 	// Create and commit test files
 	testutils.CreateAndCommitFile(t, "file1.txt", "Add file1.txt")
@@ -40,7 +44,7 @@ func TestFindUntagged(t *testing.T) {
 }
 
 func TestGetCurrentBranch(t *testing.T) {
-	testutils.SetupTestRepo(t)
+	setup(t)
 
 	// Check that the branch name matches `git rev-parse` output
 	branch := testutils.RunGitCommandAndGetOutput(t, "rev-parse", "--abbrev-ref", "HEAD")
@@ -60,7 +64,7 @@ func TestPostCommitHook(t *testing.T) {
 		t.Fatal("Running outside WSL.")
 	}
 
-	testutils.SetupTestRepo(t)
+	setup(t)
 
 	// Create the post-commit hook
 	hookScript := `#!/bin/sh
@@ -109,5 +113,100 @@ func TestPostCommitTagging(t *testing.T) {
 	tags := testutils.RunGitCommandAndGetOutput(t, "tag", "--list")
 	if tags == "" {
 		t.Fatalf("Expected tag to be created by post-commit hook, but none found.")
+	}
+}
+
+// TestCreateTag verifies that CreateTag correctly runs the Git command to create a tag.
+func TestCreateTag(t *testing.T) {
+	tag := "v1.0.0"
+	message := "Initial release"
+	commit := "abc123"
+
+	err := CreateTag(tag, message, commit)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+}
+
+// TestGetLatestTag verifies that GetLatestTag correctly retrieves the latest semantic version tag.
+func TestGetLatestTag(t *testing.T) {
+	setup(t)
+	commits := []string{"v1.0.0", "v1.1.0", "v2.0.0"}
+
+	for _, tag := range commits {
+		err := CreateTag(tag, "Test tag "+tag, testutils.RunGitCommandAndGetOutput(t, "rev-parse", "HEAD"))
+		if err != nil {
+			t.Fatalf("Failed to create tag %s: %v", tag, err)
+		}
+	}
+
+	tag, err := GetLatestTag()
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	expected := "v2.0.0"
+	if tag != expected {
+		t.Errorf("Expected %s, got %s", expected, tag)
+	}
+}
+
+func TestGetTagsForCommit(t *testing.T) {
+	setup(t)
+	commit := testutils.RunGitCommandAndGetOutput(t, "rev-parse", "HEAD")
+	expectedTags := []string{"v1.0.0", "v1.1.0"}
+
+	for _, tag := range expectedTags {
+		err := CreateTag(tag, "Test tag "+tag, commit)
+		if err != nil {
+			t.Fatalf("Failed to create tag %s: %v", tag, err)
+		}
+	}
+
+	tags, err := GetTagsForCommit(commit)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if len(tags) != len(expectedTags) {
+		t.Fatalf("Expected tags %v, got %v", expectedTags, tags)
+	}
+	for i, tag := range tags {
+		if tag != expectedTags[i] {
+			t.Errorf("Expected %s, got %s", expectedTags[i], tag)
+		}
+	}
+}
+
+// TestGetShortCommitHash verifies that GetShortCommitHash correctly retrieves the short form of a commit hash.
+func TestGetShortCommitHash(t *testing.T) {
+	setup(t)
+	fullHash := testutils.RunGitCommandAndGetOutput(t, "rev-parse", "HEAD")
+
+	shortHash, err := GetShortCommitHash(fullHash)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	minLength := 7
+	if len(shortHash) < minLength {
+		t.Errorf("Expected short hash to have at least %d characters, got %d", minLength, len(shortHash))
+	}
+}
+
+// TestGetCommitMessage verifies that GetCommitMessage correctly retrieves the commit message.
+func TestGetCommitMessage(t *testing.T) {
+	setup(t)
+	expectedMessage := "Test commit message"
+	testutils.CreateAndCommitFile(t, "test-file.txt", expectedMessage)
+	commit := testutils.RunGitCommandAndGetOutput(t, "rev-parse", "HEAD")
+
+	message, err := GetCommitMessage(commit)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if message != expectedMessage {
+		t.Errorf("Expected %s, got %s", expectedMessage, message)
 	}
 }

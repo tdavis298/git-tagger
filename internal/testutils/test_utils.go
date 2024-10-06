@@ -107,6 +107,12 @@ func IsWSL() bool {
 	return strings.Contains(string(versionData), "Microsoft") || strings.Contains(string(versionData), "WSL")
 }
 
+/* Mock function to wrap errors
+func MockWrapErrorf(format string, a ...interface{}) error {
+	return fmt.Errorf(format, a...)
+}
+*/
+
 // RunGitCommand runs a Git command without returning its output.
 func RunGitCommand(t *testing.T, args ...string) {
 	cmd := exec.Command("git", args...)

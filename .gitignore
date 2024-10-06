@@ -5,7 +5,7 @@
 *.dylib
 
 # Test binary, build cache, and coverage files
-*.test
+*_test.go
 *.out
 
 # Output of the go build command
