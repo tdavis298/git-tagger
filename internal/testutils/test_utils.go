@@ -1,8 +1,6 @@
 package testutils
 
 import (
-	"errors"
-	"golang.org/x/sys/windows"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,18 +70,6 @@ func FindUntaggedCommits(t *testing.T) []string {
 	}
 
 	return untaggedCommits
-}
-
-// IsWSL checks if the code is running inside a WSL environment.
-func IsWSL() bool {
-	// Read the contents of /proc/version
-	versionData, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-
-	// Check if the contents mention "Microsoft" or "WSL"
-	return strings.Contains(string(versionData), "Microsoft") || strings.Contains(string(versionData), "WSL")
 }
 
 /* Mock function to wrap errors
@@ -170,15 +156,10 @@ func cleanupTempDir(t *testing.T, tempDir string) {
 		if err == nil {
 			return
 		}
-		var pathErr *os.PathError
-		if errors.As(err, &pathErr) && errors.Is(pathErr.Err, windows.ERROR_SHARING_VIOLATION) {
-			t.Logf("Attempt %d: temp directory is in use, retrying...", attempts+1)
-			time.Sleep(retryDelay)
-		} else {
-			t.Fatalf("Unexpected error while removing temp directory: %v", err)
-		}
+		t.Logf("Attempt %d: error removing temp directory, retrying...", attempts+1)
+		time.Sleep(retryDelay)
 	}
-	t.Fatalf("Failed to clean up temp directory after %d attempts due to sharing violation", maxRetries)
+	t.Fatalf("Failed to clean up temp directory after %d attempts", maxRetries)
 }
 
 func changeDir(t *testing.T, dir string) {
