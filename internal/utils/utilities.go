@@ -15,7 +15,7 @@ import (
 // AppendLineToFile appends a line to a file, ensuring the file is executable.
 // parameters:
 // - filePath: the path to the file to which the line should be appended
-// - line: the line to append to the file
+// - content: the line to append to the file
 // returns:
 // - error: an error object if something went wrong, otherwise nil
 func AppendLineToFile(filePath, content string) error {
@@ -23,17 +23,23 @@ func AppendLineToFile(filePath, content string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = file.Close()
-	}()
+	defer closeFile(file, filePath)
 
-	// Append the full content to the file, not just a single line
-	_, err = file.WriteString("\n" + content + "\n")
+	// Ensure the new content starts and ends with a newline
+	if !strings.HasPrefix(content, "\n") {
+		content = "\n" + content
+	}
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+
+	// Append content to the file
+	_, err = file.WriteString(content)
 	if err != nil {
 		return err
 	}
 
-	// Make sure the hook file is executable
+	// Ensure the file is executable
 	return os.Chmod(filePath, 0755)
 }
 
@@ -47,15 +53,13 @@ func AppendLineToFile(filePath, content string) error {
 // Returns:
 // - string: The converted Unix-style file path.
 func ConvertToUnixPath(path string) string {
-	// Convert drive letter (e.g., D:) to /mnt/d
-	re := regexp.MustCompile(`^([a-zA-Z]):\\`)
-	path = re.ReplaceAllString(path, `/mnt/$1/`)
+	// Check if the path has a Windows drive letter
+	if len(path) > 1 && path[1] == ':' {
+		path = "/mnt/" + strings.ToLower(string(path[0])) + path[2:] // Convert `C:` to `/mnt/c`
+	}
 
 	// Replace backslashes with forward slashes
-	path = strings.ReplaceAll(path, `\`, `/`)
-
-	// Convert drive letter to lowercase
-	return strings.ToLower(path)
+	return strings.ReplaceAll(path, `\`, `/`)
 }
 
 // HookContainsFullContent checks if a given line is present in a slice of hook lines.
@@ -70,7 +74,8 @@ func HookContainsFullContent(filePath, requiredContent string) (bool, error) {
 		return false, err
 	}
 
-	return strings.Contains(string(fileContent), strings.TrimSpace(requiredContent)), nil
+	// Use trimmed versions to avoid false negatives due to whitespace issues
+	return strings.Contains(strings.TrimSpace(string(fileContent)), strings.TrimSpace(requiredContent)), nil
 }
 
 // GenerateHookContent generates the content for a git post-commit hook.
@@ -78,7 +83,7 @@ func HookContainsFullContent(filePath, requiredContent string) (bool, error) {
 // - string: the generated hook content
 // - error: an error object if something went wrong, otherwise nil
 func GenerateHookContent() (string, error) {
-	// Get the root directory of the Git repository
+	// Retrieve the Git root directory
 	gitRootCmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	output, err := gitRootCmd.Output()
 	if err != nil {
@@ -86,29 +91,24 @@ func GenerateHookContent() (string, error) {
 	}
 	gitRoot := strings.TrimSpace(string(output))
 
-	// Define the relative path to your executable within the repository
+	// Set the relative path to the executable
 	relativeExecPath := "bin/tagger"
-
-	// Join the git root and the relative path to form the full path to the executable
 	execPath := filepath.Join(gitRoot, relativeExecPath)
 
-	// Ensure the path is fully resolved if there are any symlinks
+	// Resolve symlinks in the executable path
 	realExecPath, err := filepath.EvalSymlinks(execPath)
 	if err != nil {
 		return "", WrapErrorf("failed to resolve symlinks: %w", err)
 	}
 
-	// Convert to Unix-style path if running in WSL
-	realExecPath = strings.ReplaceAll(realExecPath, "\\", "/")
-
-	// Generate the full script to be added as the post-commit hook
+	// Prepare the hook content
 	hookContent := fmt.Sprintf(`# Added by versioning tool
 
 export GIT_POST_COMMIT="true"
 
 # Execute the versioning tool
 "%s" -version-tag
-`, realExecPath)
+`, strings.ReplaceAll(realExecPath, "\\", "/"))
 
 	return hookContent, nil
 }
@@ -179,6 +179,17 @@ func WriteFile(filePath, content string) error {
 	}
 
 	return nil
+}
+
+// closeFile ensures the provided file is closed and logs a warning if an error occurs during the process.
+//
+// Parameters:
+// - file: a pointer to the os.File object to close
+// - filePath: the path of the file being closed, used for logging purposes
+func closeFile(file *os.File, filePath string) {
+	if err := file.Close(); err != nil {
+		fmt.Printf("warning: failed to close file %s: %v\n", filePath, err)
+	}
 }
 
 // ---------- Utility Functions ----------
@@ -285,4 +296,14 @@ func StripHashSuffix(tag string) string {
 	// Split by the dash to separate version and hash
 	parts := strings.SplitN(tag, "-", 2)
 	return parts[0] // Return the core semantic version without the hash
+}
+
+// StringSliceContains checks if a specific string is present in a slice of strings.
+func StringSliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
